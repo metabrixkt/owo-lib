@@ -1,6 +1,7 @@
 package io.wispforest.owo.braid.core;
 
 import com.mojang.blaze3d.platform.Window;
+import com.mojang.blaze3d.platform.TextInputManager;
 import io.wispforest.owo.braid.core.cursor.CursorController;
 import io.wispforest.owo.braid.core.cursor.CursorStyle;
 import io.wispforest.owo.ui.event.WindowResizeCallback;
@@ -23,6 +24,10 @@ public interface Surface {
     void endRendering();
 
     void dispose();
+
+    default TextInputManager textInputManager(TextInputManager mainManager) {
+        return mainManager;
+    }
 
     class Default implements Surface {
 
@@ -75,7 +80,9 @@ public interface Surface {
         }
 
         @Override
-        public void beginRendering() {}
+        public void beginRendering() {
+            this.cursorController.apply();
+        }
 
         @Override
         public void endRendering() {}

@@ -100,6 +100,8 @@ public abstract class BaseOwoScreen<R extends ParentUIComponent> extends Screen 
             }
         }
 
+        if (this.uiAdapter != null) this.uiAdapter.setFocused(true);
+
         ScreenEvents.afterExtract(this).register((screen, drawContext, mouseX, mouseY, tickDelta) -> {
             this.drawComponentTooltip(drawContext, mouseX, mouseY, tickDelta);
         });
@@ -172,6 +174,7 @@ public abstract class BaseOwoScreen<R extends ParentUIComponent> extends Screen 
     @Override
     public void removed() {
         if (this.uiAdapter != null) {
+            this.uiAdapter.setFocused(false);
             this.uiAdapter.cursorAdapter.applyStyle(CursorStyle.NONE);
         }
     }

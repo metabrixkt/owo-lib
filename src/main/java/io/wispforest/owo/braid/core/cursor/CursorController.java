@@ -1,6 +1,6 @@
 package io.wispforest.owo.braid.core.cursor;
 
-import org.lwjgl.glfw.GLFW;
+import org.lwjgl.sdl.SDLMouse;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -22,29 +22,35 @@ public class CursorController {
     }
 
     public void setStyle(CursorStyle style) {
-        if (this.disposed || this.lastCursorStyle == style) return;
-
-        if (style == CursorStyle.NONE) {
-            GLFW.glfwSetCursor(this.windowHandle, 0);
-        } else {
-            if (!this.cursors.containsKey(style)) {
-                this.cursors.put(style, style.allocate());
-            }
-
-            GLFW.glfwSetCursor(this.windowHandle, this.cursors.get(style));
-        }
+        if (this.disposed) return;
 
         this.lastCursorStyle = style;
+        this.apply();
+    }
+
+    /**
+     * SDL cursors are global, so only the window under the mouse may select one.
+     */
+    public void apply() {
+        if (this.disposed || SDLMouse.SDL_GetMouseFocus() != this.windowHandle) return;
+
+        long cursor = this.lastCursorStyle == CursorStyle.NONE
+            ? 0
+            : this.cursors.computeIfAbsent(this.lastCursorStyle, CursorStyle::allocate);
+        if (cursor == 0) cursor = SDLMouse.SDL_GetDefaultCursor();
+        if (SDLMouse.SDL_GetCursor() != cursor) SDLMouse.SDL_SetCursor(cursor);
     }
 
     public void dispose() {
         if (this.disposed) return;
 
-        for (var ptr : this.cursors.values()) {
-            if (ptr == 0) return;
-            GLFW.glfwDestroyCursor(ptr);
+        if (this.cursors.containsValue(SDLMouse.SDL_GetCursor())) {
+            SDLMouse.SDL_SetCursor(SDLMouse.SDL_GetDefaultCursor());
         }
-
+        for (final var cursor : this.cursors.values()) {
+            if (cursor != 0) SDLMouse.SDL_DestroyCursor(cursor);
+        }
+        this.cursors.clear();
         this.disposed = true;
     }
 }

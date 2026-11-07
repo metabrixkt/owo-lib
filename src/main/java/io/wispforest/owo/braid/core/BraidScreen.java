@@ -66,6 +66,18 @@ public class BraidScreen extends Screen implements DisposableScreen {
     }
 
     @Override
+    public void added() {
+        super.added();
+        if (this.state != null) this.state.setTextInputActive(true);
+    }
+
+    @Override
+    public void removed() {
+        if (this.state != null) this.state.setTextInputActive(false);
+        super.removed();
+    }
+
+    @Override
     public void dispose() {
         this.state.dispose();
     }
@@ -95,20 +107,19 @@ public class BraidScreen extends Screen implements DisposableScreen {
 
     @Override
     public boolean keyPressed(KeyEvent input) {
-        this.eventBinding.add(new KeyPressEvent(input.key(), input.scancode(), input.modifiers()));
+        this.eventBinding.add(new KeyPressEvent(input.key(), input.keycode(), input.modifiers()));
         return super.keyPressed(input);
     }
 
     @Override
     public boolean keyReleased(KeyEvent input) {
-        this.eventBinding.add(new KeyReleaseEvent(input.key(), input.scancode(), input.modifiers()));
+        this.eventBinding.add(new KeyReleaseEvent(input.key(), input.keycode(), input.modifiers()));
         return true;
     }
 
     @Override
     public boolean charTyped(CharacterEvent input) {
-        // TODO: @chyz fix modifiers for char events
-        this.eventBinding.add(new CharInputEvent((char) input.codepoint(), KeyModifiers.NONE));
+        this.eventBinding.add(new CharInputEvent(input.codepoint(), this.eventBinding.activeModifiers()));
         return true;
     }
 

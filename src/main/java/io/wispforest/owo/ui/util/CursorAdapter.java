@@ -3,7 +3,7 @@ package io.wispforest.owo.ui.util;
 import com.mojang.blaze3d.platform.Window;
 import io.wispforest.owo.ui.core.CursorStyle;
 import net.minecraft.client.Minecraft;
-import org.lwjgl.glfw.GLFW;
+import org.lwjgl.sdl.SDLMouse;
 
 import java.util.EnumMap;
 
@@ -20,7 +20,7 @@ public class CursorAdapter {
     protected CursorAdapter(long windowHandle) {
         this.windowHandle = windowHandle;
         for (var style : ACTIVE_STYLES) {
-            var pointer = GLFW.glfwCreateStandardCursor(style.glfw);
+            var pointer = SDLMouse.SDL_CreateSystemCursor(style.sdlId);
             if (pointer == 0) continue;
 
             this.cursors.put(style, pointer);
@@ -40,21 +40,23 @@ public class CursorAdapter {
     }
 
     public void applyStyle(CursorStyle style) {
-        if (this.disposed || this.lastCursorStyle == style) return;
+        if (this.disposed) return;
 
-        if (style == CursorStyle.NONE) {
-            GLFW.glfwSetCursor(this.windowHandle, 0);
-        } else {
-            GLFW.glfwSetCursor(this.windowHandle, this.cursors.getOrDefault(style, 0L));
-        }
         this.lastCursorStyle = style;
+        if (SDLMouse.SDL_GetMouseFocus() != this.windowHandle) return;
+
+        long cursor = this.cursors.getOrDefault(style, SDLMouse.SDL_GetDefaultCursor());
+        if (SDLMouse.SDL_GetCursor() != cursor) SDLMouse.SDL_SetCursor(cursor);
     }
 
     public void dispose() {
         if (this.disposed) return;
 
-        this.cursors.values().forEach(GLFW::glfwDestroyCursor);
+        if (this.cursors.containsValue(SDLMouse.SDL_GetCursor())) {
+            SDLMouse.SDL_SetCursor(SDLMouse.SDL_GetDefaultCursor());
+        }
+        this.cursors.values().forEach(SDLMouse::SDL_DestroyCursor);
+        this.cursors.clear();
         this.disposed = true;
     }
-
 }

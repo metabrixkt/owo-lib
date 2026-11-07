@@ -1,16 +1,16 @@
 package io.wispforest.owo.braid.core.cursor;
 
-import org.lwjgl.glfw.GLFW;
+import org.lwjgl.sdl.SDLMouse;
 
 public final class SystemCursorStyle implements CursorStyle {
-    public final int glfwId;
+    public final int sdlId;
 
-    SystemCursorStyle(int glfwId) {
-        this.glfwId = glfwId;
+    SystemCursorStyle(int sdlId) {
+        this.sdlId = sdlId;
     }
 
     @Override
     public long allocate() {
-        return GLFW.glfwCreateStandardCursor(this.glfwId);
+        return this.sdlId < 0 ? 0 : SDLMouse.SDL_CreateSystemCursor(this.sdlId);
     }
 }

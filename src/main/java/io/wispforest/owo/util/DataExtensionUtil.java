@@ -5,6 +5,7 @@ import blue.endless.jankson.JsonGrammar;
 import blue.endless.jankson.api.SyntaxError;
 import com.google.common.collect.MapMaker;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.resources.ResourceManager;
 import org.jetbrains.annotations.ApiStatus;
 
 import java.io.ByteArrayInputStream;
@@ -43,7 +44,12 @@ public class DataExtensionUtil {
         }
     }
 
-    public interface OptInIdentifierPredicate extends Predicate<Identifier> {
+    public interface OptInIdentifierPredicate extends Predicate<Identifier>, ResourceManager.Selector {
+        @Override
+        default boolean isIncluded(Identifier resourceId) {
+            return this.test(resourceId);
+        }
+
         static OptInIdentifierPredicate of(Predicate<Identifier> delegate) {
             return delegate instanceof OptInIdentifierPredicate optIn ? optIn : delegate::test;
         }

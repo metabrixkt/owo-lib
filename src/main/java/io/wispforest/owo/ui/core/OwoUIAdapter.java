@@ -1,5 +1,6 @@
 package io.wispforest.owo.ui.core;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import io.wispforest.owo.Owo;
 import io.wispforest.owo.renderdoc.RenderDoc;
 import io.wispforest.owo.ui.util.CursorAdapter;
@@ -13,7 +14,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.function.BiFunction;
 
@@ -44,6 +44,7 @@ public class OwoUIAdapter<R extends ParentUIComponent> implements GuiEventListen
     public final CursorAdapter cursorAdapter;
 
     protected boolean disposed = false;
+    protected boolean focused = true;
     protected boolean captureFrame = false;
 
     protected int x, y;
@@ -128,6 +129,7 @@ public class OwoUIAdapter<R extends ParentUIComponent> implements GuiEventListen
      */
     // TODO properly dispose root component
     public void dispose() {
+        this.setFocused(false);
         this.cursorAdapter.dispose();
         this.disposed = true;
     }
@@ -220,11 +222,18 @@ public class OwoUIAdapter<R extends ParentUIComponent> implements GuiEventListen
     }
 
     @Override
-    public void setFocused(boolean focused) {}
+    public void setFocused(boolean focused) {
+        if (this.focused == focused) return;
+        this.focused = focused;
+        var handler = this.rootComponent.focusHandler();
+        if (handler == null || handler.focused() == null) return;
+        if (focused) handler.focused().onFocusGained(handler.lastFocusSource());
+        else handler.focused().onFocusLost();
+    }
 
     @Override
     public boolean isFocused() {
-        return true;
+        return this.focused;
     }
 
     @Override
@@ -249,7 +258,7 @@ public class OwoUIAdapter<R extends ParentUIComponent> implements GuiEventListen
 
     @Override
     public boolean keyPressed(KeyEvent input) {
-        if (Owo.DEBUG && input.key() == GLFW.GLFW_KEY_LEFT_SHIFT) {
+        if (Owo.DEBUG && input.key() == InputConstants.KEY_LSHIFT) {
             if (input.hasControlDown()) {
                 this.toggleInspector();
             } else if (input.hasAltDown()) {
@@ -257,7 +266,7 @@ public class OwoUIAdapter<R extends ParentUIComponent> implements GuiEventListen
             }
         }
 
-        if (Owo.DEBUG && input.key() == GLFW.GLFW_KEY_R && RenderDoc.isAvailable()) {
+        if (Owo.DEBUG && input.key() == InputConstants.KEY_R && RenderDoc.isAvailable()) {
             if (input.hasAltDown() && input.hasControlDown()) {
                 this.captureFrame = true;
             }

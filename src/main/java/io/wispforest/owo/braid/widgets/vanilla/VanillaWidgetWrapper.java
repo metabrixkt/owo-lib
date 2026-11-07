@@ -1,6 +1,7 @@
 package io.wispforest.owo.braid.widgets.vanilla;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
+import org.lwjgl.sdl.SDLKeyboard;
+import com.mojang.renderpearl.backend.opengl.GlStateManager;
 import io.wispforest.owo.braid.core.BraidGraphics;
 import io.wispforest.owo.braid.core.Constraints;
 import io.wispforest.owo.braid.core.KeyModifiers;
@@ -79,11 +80,11 @@ public class VanillaWidgetWrapper<T extends Renderable & GuiEventListener> exten
         }
 
         public boolean onKeyDown(int keyCode, KeyModifiers modifiers) {
-            return widget.wrapped.keyPressed(new KeyEvent(keyCode, 0, modifiers.bitMask()));
+            return widget.wrapped.keyPressed(new KeyEvent(keyCode, SDLKeyboard.SDL_GetKeyFromScancode(keyCode, (short) modifiers.bitMask(), true), modifiers.bitMask()));
         }
 
         public boolean onKeyUp(int keyCode, KeyModifiers modifiers) {
-            return widget.wrapped.keyReleased(new KeyEvent(keyCode, 0, modifiers.bitMask()));
+            return widget.wrapped.keyReleased(new KeyEvent(keyCode, SDLKeyboard.SDL_GetKeyFromScancode(keyCode, (short) modifiers.bitMask(), true), modifiers.bitMask()));
         }
 
         public boolean onChar(int charCode, KeyModifiers modifiers) {

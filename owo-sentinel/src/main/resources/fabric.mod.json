@@ -20,7 +20,8 @@
   },
   "depends": {
     "fabricloader": "*",
-    "minecraft": ">=1.18"
+    "minecraft": ">=1.18",
+    "java": ">=25"
   },
   "custom": {
     "modmenu": {

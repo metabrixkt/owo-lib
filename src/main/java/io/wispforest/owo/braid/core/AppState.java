@@ -1,7 +1,7 @@
 package io.wispforest.owo.braid.core;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.google.common.collect.Iterables;
-import com.mojang.blaze3d.opengl.GlStateManager;
 import io.wispforest.owo.braid.core.cursor.CursorStyle;
 import io.wispforest.owo.braid.core.events.*;
 import io.wispforest.owo.braid.framework.BuildContext;
@@ -20,6 +20,8 @@ import io.wispforest.owo.braid.widgets.focus.RootFocusScope;
 import io.wispforest.owo.braid.widgets.inspector.BraidInspector;
 import io.wispforest.owo.braid.widgets.inspector.InstancePicker;
 import io.wispforest.owo.util.EventSource;
+import io.wispforest.owo.mixin.braid.MinecraftAccessor;
+import com.mojang.blaze3d.platform.TextInputManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
@@ -29,7 +31,6 @@ import org.jetbrains.annotations.Nullable;
 import org.joml.Vector2d;
 import org.joml.Vector2dc;
 import org.joml.Vector2f;
-import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 
 import java.time.Duration;
@@ -79,6 +80,9 @@ public class AppState implements InstanceHost, ProxyHost {
     private final EventSource<?>.Subscription resizeSubscription;
     private final List<Runnable> onTerminate = new ArrayList<>();
     private boolean running = true;
+    private boolean disposed;
+    private @Nullable Object textInputOwner;
+    private boolean textInputActive = true;
 
     private final BraidInspector inspector = new BraidInspector(this);
 
@@ -117,13 +121,36 @@ public class AppState implements InstanceHost, ProxyHost {
             ),
             this.rootBuildScope
         ).proxy();
-        this.root.bootstrap(this, this);
+        BraidTextInput.withApp(this, () -> this.root.bootstrap(this, this));
         this.scheduleLayout(this.rootInstance());
 
         this.reloadListener = BraidHotReloadCallback.register();
         this.resizeSubscription = this.surface.onResize().subscribe((newWidth, newHeight) -> {
             this.rootInstance().markNeedsLayout();
         });
+    }
+
+    public TextInputManager textInputManager() {
+        return this.surface.textInputManager(((MinecraftAccessor) this.client).owo$getTextInputManager());
+    }
+
+    public void onTextInputFocusChange(Object owner, boolean focused) {
+        var manager = this.textInputManager();
+        if (focused) {
+            this.textInputOwner = owner;
+            if (this.textInputActive) manager.startTextInput(owner);
+        } else {
+            if (this.textInputOwner == owner) this.textInputOwner = null;
+            manager.stopTextInput(owner);
+        }
+    }
+
+    public void setTextInputActive(boolean active) {
+        this.textInputActive = active;
+        if (this.textInputOwner == null) return;
+        var manager = this.textInputManager();
+        if (active) manager.startTextInput(this.textInputOwner);
+        else manager.stopTextInput(this.textInputOwner);
     }
 
     public boolean running() {
@@ -146,6 +173,10 @@ public class AppState implements InstanceHost, ProxyHost {
     private @Nullable TooltipState activeTooltip;
 
     public void draw(GuiGraphicsExtractor graphics) {
+        BraidTextInput.withApp(this, () -> this.drawOnSurface(graphics));
+    }
+
+    private void drawOnSurface(GuiGraphicsExtractor graphics) {
         this.surface.beginRendering();
 
         graphics.push();
@@ -170,6 +201,15 @@ public class AppState implements InstanceHost, ProxyHost {
     }
 
     public void processEvents(float frameDeltaInTicks) {
+        BraidTextInput.withApp(this, () -> {
+            if (this.textInputActive && this.textInputOwner != null) {
+                this.textInputManager().startTextInput(this.textInputOwner);
+            }
+            this.processSurfaceEvents(frameDeltaInTicks);
+        });
+    }
+
+    private void processSurfaceEvents(float frameDeltaInTicks) {
         this.pollAndDispatchEvents();
 
         var state = this.hitTest();
@@ -378,15 +418,15 @@ public class AppState implements InstanceHost, ProxyHost {
                         slot.markHandled();
                     }
                 }
-                case KeyPressEvent(int keyCode, int scancode, KeyModifiers modifiers) -> {
-                    if (keyCode == GLFW.GLFW_KEY_R && modifiers.shift() && modifiers.alt()) {
+                case KeyPressEvent(int keyCode, int nativeKeyCode, KeyModifiers modifiers) -> {
+                    if (keyCode == InputConstants.KEY_R && modifiers.shift() && modifiers.alt()) {
                         this.rebuildRoot();
                         slot.markHandled();
 
                         break;
                     }
 
-                    if (keyCode == GLFW.GLFW_KEY_I && modifiers.ctrl() && modifiers.shift()) {
+                    if (keyCode == InputConstants.KEY_I && modifiers.ctrl() && modifiers.shift()) {
                         this.inspector.activate();
                         slot.markHandled();
 
@@ -400,15 +440,15 @@ public class AppState implements InstanceHost, ProxyHost {
                         slot.markHandled();
                     }
                 }
-                case KeyReleaseEvent(int keycode, int scancode, KeyModifiers modifiers) -> {
-                    var event = new RootFocusScope.KeyUpEvent(keycode, modifiers);
+                case KeyReleaseEvent(int keyCode, int nativeKeyCode, KeyModifiers modifiers) -> {
+                    var event = new RootFocusScope.KeyUpEvent(keyCode, modifiers);
                     this.keyUpStream.sink().onEvent(event);
 
                     if (event.handled()) {
                         slot.markHandled();
                     }
                 }
-                case CharInputEvent(char codepoint, KeyModifiers modifiers) -> {
+                case CharInputEvent(int codepoint, KeyModifiers modifiers) -> {
                     var event = new RootFocusScope.CharEvent(codepoint, modifiers);
                     this.charStream.sink().onEvent(event);
 
@@ -428,20 +468,24 @@ public class AppState implements InstanceHost, ProxyHost {
     public void rebuildRoot() {
         var before = Instant.now();
 
-        this.root.reassemble();
+        BraidTextInput.withApp(this, this.root::reassemble);
 
         var elapsed = ChronoUnit.MICROS.between(before, Instant.now());
         if (this.logger != null) this.logger.debug("completed full app rebuild in {}us", elapsed);
     }
 
     public void dispose() {
+        if (this.disposed) return;
+        this.disposed = true;
+        this.running = false;
         this.inspector.close();
 
         this.reloadListener.unregister();
         this.resizeSubscription.cancel();
 
+        this.setTextInputActive(false);
+        BraidTextInput.withApp(this, this.root::unmount);
         this.surface.dispose();
-        this.root.unmount();
     }
 
     private HitTestState hitTest() {

@@ -1,6 +1,6 @@
 package io.wispforest.owo.braid.core;
 
-import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
 import io.wispforest.owo.braid.core.element.BraidDashedLineElement;
 import io.wispforest.owo.mixin.braid.Matrix3x2fStackAccessor;
 import io.wispforest.owo.mixin.ui.access.GuiGraphicsExtractorAccessor;
@@ -34,7 +34,10 @@ public class BraidGraphics extends OwoUIGraphics {
             ((GuiGraphicsExtractorAccessor) graphics)::owo$setDeferredTooltip,
             surface
         );
-        ((GuiGraphicsExtractorAccessor) braidContext).owo$setScissorStack(((GuiGraphicsExtractorAccessor) graphics).owo$getScissorStack());
+        var inheritedScissorStack = ((GuiGraphicsExtractorAccessor) graphics).owo$getScissorStack();
+        if (inheritedScissorStack.peek() != null) {
+            ((GuiGraphicsExtractorAccessor) braidContext).owo$setScissorStack(inheritedScissorStack);
+        }
         ((GuiGraphicsExtractorAccessor) braidContext).owo$setPose(new MatrixStack(((GuiGraphicsExtractorAccessor) graphics).owo$getPose()));
 
         return braidContext;

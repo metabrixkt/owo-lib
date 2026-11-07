@@ -1,5 +1,6 @@
 package io.wispforest.owo.braid.widgets.textinput;
 
+import io.wispforest.owo.braid.core.AppState;
 import io.wispforest.owo.braid.core.Aabb2d;
 import io.wispforest.owo.braid.framework.BuildContext;
 import io.wispforest.owo.braid.framework.proxy.WidgetState;
@@ -201,6 +202,7 @@ public class EditableText extends StatefulWidget {
 
         @Override
         public void dispose() {
+            AppState.of(this.context()).onTextInputFocusChange(this, false);
             this.widget().controller.removeListener(this.listener);
         }
 
@@ -262,10 +264,12 @@ public class EditableText extends StatefulWidget {
                 focusable -> focusable
                     .focusGainedCallback(() -> {
                         this.focused = true;
+                        AppState.of(this.context()).onTextInputFocusChange(this, true);
                         this.restartBlinking();
                     })
                     .focusLostCallback(() -> {
                         this.focused = false;
+                        AppState.of(this.context()).onTextInputFocusChange(this, false);
                         this.stopBlinking();
                     })
                     .charCallback((charCode, modifiers) -> this.instance().onChar(charCode))
